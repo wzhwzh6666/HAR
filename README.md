@@ -95,4 +95,7 @@ websocket-client 1.6.1   | Werkzeug 2.2.3
 wheel 0.38.4             | widgetsnbextension 4.0.13
 zipp 3.15.0
 
-### 
+### Running Method
+After installing the required environment, run train.py.
+
+`python train.py` 
