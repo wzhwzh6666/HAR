@@ -109,16 +109,16 @@ def get_all_data():
 # %%
 def init_model(device, pyg):
     criterion = BCEFocalLoss(reduction='none')  # 二元交叉熵损失函数，一种常用于二分类问题的损失函数。
-    rgcnModel = TAG(device, 768, 1 , 768 * 2, pyg)  # 初始化了一个 HAN 模型。
-    rgcnModel = rgcnModel.to(device)  # 将模型移动到指定的设备上
+    TAGModel = TAG(device, 768, 1 , 768 * 2, pyg)  # 初始化了一个 HAN 模型。
+    TAGModel = TAGModel.to(device)  # 将模型移动到指定的设备上
     rankNetModel = rankNet(768 * 2)  # 初始化了一个 rankNet 模型，输入维度是 768 * 2。
     rankNetModel = rankNetModel.to(device)  # 将 rankNetModel 移动到指定的设备上
 
     optimizer = torch.optim.Adam(
-        chain(rgcnModel.parameters(), rankNetModel.parameters()), lr = learning_rate
+        chain(TAGModel.parameters(), rankNetModel.parameters()), lr = learning_rate
     )  # 定义了一个优化器，使用的是 Adam 算法。优化器会更新 hanModel 和 rankNetModel 的参数以最小化损失函数。学习率设置为 5e-6。
 
-    return rgcnModel, rankNetModel, optimizer, criterion
+    return TAGModel, rankNetModel, optimizer, criterion
 
 
 # %%
@@ -198,11 +198,11 @@ def mixup_criterion(pred, y_a, y_b, criterion, lam=0.5):
 
 # %%
 # %%
-def train_batchlist(batches, rgcnModel, rankNetModel, optimizer, criterion, device, epoch):
+def train_batchlist(batches, TAGModel, rankNetModel, optimizer, criterion, device, epoch):
     # 这个函数的主要目的是训练模型并计算损失。
     all_loss = []  # 初始化一个空列表 all_loss，用于存储每个批次的损失。
-    # 将 rgcnModel 和 rankNetModel 设置为训练模式。
-    rgcnModel.train()
+    # 将 TAGModel 和 rankNetModel 设置为训练模式。
+    TAGModel.train()
     rankNetModel.train()
 
     for batch in batches:
@@ -214,8 +214,8 @@ def train_batchlist(batches, rgcnModel, rankNetModel, optimizer, criterion, devi
 
         probs = batch.probs.to(device)
         
-        x = rgcnModel(pyg1, del_index1)  # 通过 rgcnModel 计算 pyg1 和 pyg2 的输出。
-        y = rgcnModel(pyg2, del_index2)
+        x = TAGModel(pyg1, del_index1)  # 通过 TAGModel 计算 pyg1 和 pyg2 的输出。
+        y = TAGModel(pyg2, del_index2)
 
         optimizer.zero_grad()
         preds = rankNetModel(x, y)
@@ -250,9 +250,9 @@ def train_batchlist(batches, rgcnModel, rankNetModel, optimizer, criterion, devi
 
 # %%
 # #这个函数的主要目的是在给定的设备上验证模型的性能，并计算损失。
-def validate_batchlist(batches, rgcnModel, rankNetModel, criterion, device):
+def validate_batchlist(batches, TAGModel, rankNetModel, criterion, device):
     all_loss = []
-    rgcnModel.eval()
+    TAGModel.eval()
     rankNetModel.eval()  # 将 hanModel 和 rankNetModel 设置为评估模式。
 
     for batch in batches:
@@ -264,8 +264,8 @@ def validate_batchlist(batches, rgcnModel, rankNetModel, criterion, device):
             del_index2 = batch.del_index2.to(device)
 
             probs = batch.probs.to(device)
-            x = rgcnModel(pyg1, del_index1)  # 通过 hanModel 计算 pyg1 和 pyg2 的输出。
-            y = rgcnModel(pyg2, del_index2)
+            x = TAGModel(pyg1, del_index1)  # 通过 hanModel 计算 pyg1 和 pyg2 的输出。
+            y = TAGModel(pyg2, del_index2)
 
             preds = rankNetModel(x, y)
             loss_con = criterion(preds, probs)
@@ -328,7 +328,7 @@ def do_cross_fold_valid(device, K):
         # print(trainset)
         # print(dir_to_minigraphs)
 
-        rgcnModel, rankNetModel, optimizer, criterion = init_model(
+        TAGModel, rankNetModel, optimizer, criterion = init_model(
             device, all_batch_list[0][0].pyg1
         )  # 初始化模型和训练设置。
 
@@ -349,15 +349,15 @@ def do_cross_fold_valid(device, K):
             adjust_learning_rate( optimizer, epoch)
             
             total_train_loss = total_train_loss + train_batchlist(
-                all_batch_list[0], rgcnModel, rankNetModel, optimizer, criterion, device, epoch
+                all_batch_list[0], TAGModel, rankNetModel, optimizer, criterion, device, epoch
             )
 
-            eval(trainset, dir_to_minigraphs, rgcnModel, rankNetModel, device)
+            eval(trainset, dir_to_minigraphs, TAGModel, rankNetModel, device)
 
             tp1, fp1, t = eval_top(
                 trainset,
                 dir_to_minigraphs,
-                rgcnModel,
+                TAGModel,
                 rankNetModel,
                 device,
                 all_true_cid_map,
@@ -366,7 +366,7 @@ def do_cross_fold_valid(device, K):
             tp2, fp2, t = eval_top(
                 trainset,
                 dir_to_minigraphs,
-                rgcnModel,
+                TAGModel,
                 rankNetModel,
                 device,
                 all_true_cid_map,
@@ -375,7 +375,7 @@ def do_cross_fold_valid(device, K):
             tp3, fp3, t = eval_top(
                 trainset,
                 dir_to_minigraphs,
-                rgcnModel,
+                TAGModel,
                 rankNetModel,
                 device,
                 all_true_cid_map,
@@ -412,11 +412,11 @@ def do_cross_fold_valid(device, K):
             total_tp3 = 0
             total_fp3 = 0
             total_t = 0
-            eval(testset, dir_to_minigraphs, rgcnModel, rankNetModel, device)
+            eval(testset, dir_to_minigraphs, TAGModel, rankNetModel, device)
             tp1, fp1, t = eval_top(
                 testset,
                 dir_to_minigraphs,
-                rgcnModel,
+                TAGModel,
                 rankNetModel,
                 device,
                 all_true_cid_map,
@@ -425,7 +425,7 @@ def do_cross_fold_valid(device, K):
             tp2, fp2, t = eval_top(
                 testset,
                 dir_to_minigraphs,
-                rgcnModel,
+                TAGModel,
                 rankNetModel,
                 device,
                 all_true_cid_map,
@@ -434,7 +434,7 @@ def do_cross_fold_valid(device, K):
             tp3, fp3, t = eval_top(
                 testset,
                 dir_to_minigraphs,
-                rgcnModel,
+                TAGModel,
                 rankNetModel,
                 device,
                 all_true_cid_map,
